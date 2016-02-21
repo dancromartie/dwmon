@@ -9,7 +9,8 @@ entirely general and applicable to generic batch/laggy/realtime/high-volume use
 cases complicates the design considerably.
 
 I've seen decent systems for _graphing_ events, but haven't seen many for 
-monitoring things beyond exceptions.  Even if something exist, this is fun.
+monitoring things beyond exceptions.  Even if something exist, this is fun.  This 
+is also a different way of thinking about my previous "Affirmative" project (see repo by same name).
 
 Here is an example config:
 
@@ -63,6 +64,24 @@ No spaces are allowed except between options.  Numbers/ranges must not be separa
 from their options with whitespace.
 
 # More details about counting logic
+The output of query results in the configs gets sent to a dataset like this:
+
+```
+checker_name|unique_id|timestamp
+...
+new_applications|123|1340000000
+new_applications|789|1340000003
+model_executions|123|1340000004
+new_applications|456|1340000009
+model_executions|101112|1340000004
+...
+```
+
+Again, if a new unique_id is ever seen for checker_name, the timestamp from the
+config-ed query will be added for the new row.  Counts are calculated off of
+this dataset.  Rows are never deleted from here.
+
+
 Every minute when checks are run, the checker rewinds a hypothetical clock 
 by several multiples of LOOKBACKSECONDS.  It then advances, one minute 
 at a time, until it hits the current time.  At each minute in this hypothetical 

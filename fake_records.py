@@ -21,21 +21,19 @@ def fake_id():
 
 
 def fake_an_application():
-    #icreate table opportunities (opp_id text, createddate text, stage text);
-    opp_id = fake_id()
+    application_id = fake_id()
     created_date = "2016-02-20"
     stage = random.choice(["won", "lost"])
     insert_query = """
-        INSERT INTO opportunities (opp_id, createddate, stage)
+        INSERT INTO applications (application_id, createddate, stage)
         VALUES (?, ?, ?)
     """
-    insert_data = (opp_id, created_date, stage)
+    insert_data = (application_id, created_date, stage)
     CONN.cursor().execute(insert_query, insert_data)
     CONN.commit()
 
 
 def fake_an_execution():
-    #create table model_executions (execution_id text, ts integer, model_name text, result text);;
     exec_id = fake_id()
     exec_ts = int(time.time())
     model_name = random.choice(["credit", "industry"])

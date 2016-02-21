@@ -4,7 +4,7 @@ SELECT
 execution_id AS dwmon_unique_key,
 ts AS dwmon_timestamp
 FROM model_executions
-ORDER BY ts DESC
+ORDER BY dwmon_timestamp DESC
 LIMIT 10000
 
 __REQUIREMENTS__

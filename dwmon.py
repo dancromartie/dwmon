@@ -39,11 +39,6 @@ def parse_config_file(checker_name):
     query = query_search.group(1).strip()
     requirements_sets = query_search.group(2).strip().split("\n")
     requirements = [parse_requirements(x) for x in requirements_sets]
-    #print "*" * 20
-    #print "Query is %s" % query
-    #print "*" * 20
-    #print "Requirements are %s" % requirements
-    #print "*" * 20
     return (query, requirements)
 
 
@@ -304,7 +299,8 @@ def do_multiple_history_check(checker_name, query, requirements):
                 requirements
             )
             assert check_status in ["GOOD", "BAD"]
-            print "status was %s" % check_status
+            print "checker: %s, status: %s, check_time: %s" \
+                % (checker_name, check_status, elig_min)
             all_new_checks.append(check_status)
             log_check(checker_name, elig_min)
     return all_new_checks

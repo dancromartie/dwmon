@@ -1,3 +1,8 @@
+"""
+This module is designed to get you started with some fake records/tables
+that you can write queries against for testing etc.
+"""
+
 import random
 import sqlite3
 import time

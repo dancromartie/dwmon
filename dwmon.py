@@ -207,6 +207,11 @@ def parse_requirements(requirements_string):
 
 
 def matches_time_pattern(requirements, epoch):
+    """
+    Checks that an epoch matches the time pattern in the requirements.
+    For example, if we have epoch 12345678900, we can check if this is 
+    indeed in the 23rd minute of the first hour of the day on a weekend.
+    """
     datetime_obj = datetime.datetime.fromtimestamp(epoch)
 
     if datetime_obj.minute < requirements["check_minutes_lower"]:
@@ -306,6 +311,10 @@ def do_multiple_history_check(checker_name, query, requirements):
 
 
 def do_single_history_check(checker_name, minute_epoch, requirements):
+    """
+    Args:
+    minute_epoch - the epoch at the start of the (hypothetical) minute
+    """
     assert isinstance(minute_epoch, int)
     lookback_seconds = requirements["lookback_seconds"]
     seconds_lower = minute_epoch - lookback_seconds
@@ -326,6 +335,10 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
 
 
 def get_checker_names():
+    """
+    Go through the config directory and figure out the checker names 
+    from the files there.
+    """
     names = []
     files = os.listdir(CONFIGS_FOLDER)
     for f in files:
@@ -336,6 +349,9 @@ def get_checker_names():
 
 
 def check_all():
+    """
+    Get all checker names and do all their checks
+    """
     checker_names = get_checker_names()
     for checker_name in checker_names:
         query, requirements =  parse_config_file(checker_name)

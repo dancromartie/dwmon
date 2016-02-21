@@ -12,7 +12,7 @@ I've seen decent systems for _graphing_ events, but haven't seen many for
 monitoring things beyond exceptions.  Even if something exist, this is fun.  This 
 is also a different way of thinking about my previous "Affirmative" project (see repo by same name).
 
-Here is an example config:
+Here is an example config for a "checker" called new_applications, in file new_applications.dwmon:
 
 ```
 __QUERY__

@@ -8,6 +8,9 @@ There is no real need to have this tied to datawarehouse use cases, but somethin
 entirely general and applicable to generic batch/laggy/realtime/high-volume use 
 cases complicates the design considerably.
 
+I've seen decent systems for _graphing_ events, but haven't seen many for 
+monitoring things beyond exceptions.  Even if something exist, this is fun.
+
 Here is an example config:
 
 ```
@@ -17,7 +20,7 @@ SELECT
 execution_id AS dwmon_unique_key,
 ts AS dwmon_timestamp
 FROM model_executions
-ORDER BY ts DESC
+ORDER BY dwmon_timestamp DESC
 LIMIT 10000
 
 __REQUIREMENTS__
@@ -77,9 +80,25 @@ bunch of old alerts to spring up for previous times we have already checked unde
 a previous set of requirements for that checker.
 
 # Alerting
-No support for alerts is currently available.  It's suggested that you 
+No support for email "alerts" is currently available.  It's suggested that you 
 scan the output of this system's print statements to figure out when you should 
-alert.
+alert.  This is fairly straightforward given the output:
+
+```
+...
+eligible minute is 0 minutes ago
+Checking history for new_executions
+Found 0 events
+checker: new_executions, status: BAD, check_time: 1456023060
+eligible minute is 1 minutes ago
+Checking history for new_executions
+Found 0 events
+checker: new_executions, status: BAD, check_time: 1456023000
+...
+```
+
+You could just have a script that scans this log for "BAD", sends an email, and
+then remembers the line so that it does not alert on it twice.
 
 # Tricky situations / Anticipated FAQ
 ## My records don't have a timestamp
@@ -107,7 +126,7 @@ SELECT
 customer_id || call_time AS dwmon_unique_key,
 call_time AS dwmon_timestamp
 FROM customer_phone_calls
-ORDER BY ts DESC
+ORDER BY dwmon_timestamp DESC
 LIMIT 10000
 ```
 
@@ -121,4 +140,11 @@ CHECKHOURS0-23 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECOND
 CHECKHOURS0-23 CHECKMINUTES30-30 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
 ```
 
+# Future work
+I'm not sure how to make the (remote) database part of this swapable.
+Examples here assume sqlite or postgres, but others may have completely different 
+databases.  By allowing the user to write executables that return text instead of 
+specific queries, one could do very complex/flexible things, but this also makes 
+it hard for a novice user to add to the system.
 
+Maybe sqlAlchemy could be used.

@@ -26,6 +26,9 @@ LIMIT 10000
 
 __REQUIREMENTS__
 CHECKHOURS0-23 CHECKMINUTES0-59 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
+
+__SOURCE__
+AWS
 ```
 
 If we have a model that runs all day, we might want to check that on
@@ -65,20 +68,22 @@ from their options with whitespace.
 
 # Query execution
 You must define a _get_rows_from_query function in your_orgs_row_getter.py.  See how this 
-gets imported in dwmon.py if you are curious.
+gets imported in dwmon.py if you are curious. This function is passed a) the query from the config, 
+b) the __SOURCE__ section from the config.
 
 ```
 import os
 
 import db_client
 
+# Could do fancy stuff using query_details["souce"] if you want multiple sources
 db_user = os.environ["DWMON_DB_USER"]
 db_name = os.environ["DWMON_DB_NAME"]
 db_host = os.environ["DWMON_DB_HOST"]
 
-def _get_rows_from_query(query, data):
+def _get_rows_from_query(query_details, data):
     data_obj = db_client.Postgres(db=db_name, host=db_host, port=5432, user=db_user)
-    results = data_obj.query(query, data)
+    results = data_obj.query(query_details["query"], data)
     return results
 ```
 

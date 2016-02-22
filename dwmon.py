@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import math
 import random
@@ -14,6 +15,7 @@ CONFIGS_FOLDER = "./checker_configs"
 def parse_config_file(checker_name):
     """Parses our custom config format"""
     query_sentinel = "__QUERY__"
+    source_sentinel = "__SOURCE__"
     requirements_sentinel = "__REQUIREMENTS__"
     unique_key_sentinel = "dwmon_unique_key"
     timestamp_sentinel = "dwmon_timestamp"
@@ -29,19 +31,25 @@ def parse_config_file(checker_name):
         % unique_key_sentinel
     assert timestamp_sentinel in config_as_string, "Expected %s" \
         % timestamp_sentinel
+    assert source_sentinel in config_as_string, "Expected %s" \
+        % source_sentinel
 
     regex_string =  query_sentinel + "(.*)" + requirements_sentinel \
-        + "(.*)"
+        + "(.*)" + source_sentinel + "(.*)"
     query_search = re.search(
         regex_string,
         config_as_string,
         re.DOTALL
     )
     assert query_search, "Config parse failed for some reason"
+
     query = query_search.group(1).strip()
     requirements_sets = query_search.group(2).strip().split("\n")
+    query_source = query_search.group(3).strip()
+
     requirements = [parse_requirements(x) for x in requirements_sets]
-    return (query, requirements)
+    query_details = {"query": query, "source": query_source}
+    return (query_details, requirements)
 
 
 def _get_rows_from_query(query, data):
@@ -238,14 +246,14 @@ def matches_time_pattern(requirements, epoch):
     return True
 
 
-def do_multiple_history_check(checker_name, query, requirements):
+def do_multiple_history_check(checker_name, query_details, requirements):
     """
     Check that events recorded match the requirements in the config
     Args:
     requirements -- ONE set of parsed requirements (not all)
     """
 
-    assert "select" in query.lower()
+    assert "select" in query_details["query"].lower()
     assert len(checker_name) < 100
     assert isinstance(requirements, dict)
 
@@ -285,24 +293,23 @@ def do_multiple_history_check(checker_name, query, requirements):
     ]
     all_new_checks = []
     if eligible_minutes:
-        print "running your orgs query getter"
         # Refresh results, just once if we have reason to check
-        rows = your_orgs_row_getter._get_rows_from_query(query, ())
+        rows = your_orgs_row_getter._get_rows_from_query(query_details, ())
         store_results(checker_name, rows)
 
         filtered_minutes = [] 
         for elig_min in eligible_minutes:
-            print "eligible minute is %s minutes ago" \
-                % ((int(time.time()) - elig_min) / 60)
-            print "Checking history for %s" % checker_name
+            logging.info("eligible minute is %s minutes ago" \
+                % ((int(time.time()) - elig_min) / 60))
+            logging.info("Checking history for %s" % checker_name)
             check_status = do_single_history_check(
                 checker_name,
                 elig_min,
                 requirements
             )
             assert check_status in ["GOOD", "BAD"]
-            print "checker: %s, status: %s, check_time: %s" \
-                % (checker_name, check_status, elig_min)
+            logging.info("checker: %s, status: %s, check_time: %s" \
+                % (checker_name, check_status, elig_min))
             all_new_checks.append(check_status)
             log_check(checker_name, elig_min)
     return all_new_checks
@@ -352,13 +359,17 @@ def check_all():
     """
     checker_names = get_checker_names()
     for checker_name in checker_names:
-        query, requirements =  parse_config_file(checker_name)
+        query_details, requirements = parse_config_file(checker_name)
         for req in requirements:
-            statuses = do_multiple_history_check(checker_name, query, req)
+            statuses = do_multiple_history_check(checker_name, query_details, req)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(name)-8s %(levelname)-8s %(message)s'
+    )
     while True:
         check_all()
-        print "Sleeping..."
+        logging.info("Sleeping...")
         time.sleep(60)

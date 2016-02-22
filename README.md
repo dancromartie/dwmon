@@ -187,3 +187,12 @@ CHECKHOURS0-23 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECOND
 CHECKHOURS0-23 CHECKMINUTES30-30 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
 ```
 
+# Testing
+You can use the .dwmonsample files and rename them to .dwmon files to have them picked up by the
+system.  Those refer to tables that are created in fake_records.py.  Those tables will be added 
+to the sqlite database.
+
+# Creating the db
+run the create_tables function in dwmon.py
+
+

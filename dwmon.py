@@ -331,7 +331,7 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
     events_query_data = (checker_name, seconds_lower, seconds_upper)
     rows = _get_rows_from_query(events_query, events_query_data)
     event_count = rows[0][0]
-    print "Found %s events in the time window" % event_count
+    logging.info("Found %s events in the time window" % event_count)
     if event_count < requirements["min_num"]:
         return "BAD"
     if event_count > requirements["max_num"]:

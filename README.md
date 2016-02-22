@@ -187,6 +187,9 @@ CHECKHOURS0-23 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECOND
 CHECKHOURS0-23 CHECKMINUTES30-30 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
 ```
 
+## The unique thing is long, like a piece of text
+Maybe you can take an md5 hash or something like that.
+
 # Testing
 You can use the .dwmonsample files and rename them to .dwmon files to have them picked up by the
 system.  Those refer to tables that are created in fake_records.py.  Those tables will be added 

@@ -6,6 +6,8 @@ import re
 import sqlite3
 import time
 
+import your_orgs_row_getter
+
 DB_NAME = "dwmon_fake.db"
 CONFIGS_FOLDER = "./checker_configs"
 
@@ -260,36 +262,36 @@ def do_multiple_history_check(checker_name, query, requirements):
 
     minute_epochs_to_check = [minute_epoch_max]
     num_minutes_to_check = int(
-        math.ceil(requirements['lookback_seconds']/ 60) * 1000)
+        math.ceil(requirements['lookback_seconds']/ 60) * 10)
     minute_marker = minute_epoch_max
     for i in range(num_minutes_to_check):
         minute_marker -= 60
         minute_epochs_to_check.append(minute_marker)
+
+    previous_checks_query = """
+        SELECT max(timestamp) FROM checks
+        WHERE checker = ?
+        ORDER BY timestamp DESC
+        LIMIT 10000
+    """
+    previous_check_results = _get_rows_from_query(
+        previous_checks_query,
+        (checker_name,)
+    )
+    time_of_most_recent_check = previous_check_results[0][0]
     eligible_minutes = [
         x for x in minute_epochs_to_check \
-            if matches_time_pattern(requirements, x)
+            if matches_time_pattern(requirements, x) and x > time_of_most_recent_check
     ]
     all_new_checks = []
     if eligible_minutes:
+        print "running your orgs query getter"
         # Refresh results, just once if we have reason to check
-        rows = _get_rows_from_query(query, ())
+        rows = your_orgs_row_getter._get_rows_from_query(query, ())
         store_results(checker_name, rows)
 
         filtered_minutes = [] 
-        previous_checks_query = """
-            SELECT max(timestamp) FROM checks
-            WHERE checker = ?
-            ORDER BY timestamp DESC
-            LIMIT 10000
-        """
-        previous_check_results = _get_rows_from_query(
-            previous_checks_query,
-            (checker_name,)
-        )
-        time_of_most_recent_check = previous_check_results[0][0]
         for elig_min in eligible_minutes:
-            if elig_min <= time_of_most_recent_check:
-                continue
             print "eligible minute is %s minutes ago" \
                 % ((int(time.time()) - elig_min) / 60)
             print "Checking history for %s" % checker_name
@@ -322,7 +324,7 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
     events_query_data = (checker_name, seconds_lower, seconds_upper)
     rows = _get_rows_from_query(events_query, events_query_data)
     event_count = rows[0][0]
-    print "Found %s events" % event_count
+    print "Found %s events in the time window" % event_count
     if event_count < requirements["min_num"]:
         return "BAD"
     if event_count > requirements["max_num"]:

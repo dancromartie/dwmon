@@ -63,6 +63,29 @@ At least one of WEEKENDS or WEEKDAYS must be supplied.
 No spaces are allowed except between options.  Numbers/ranges must not be separated 
 from their options with whitespace.
 
+# Query execution
+You must define a _get_rows_from_query function in your_orgs_row_getter.py.  See how this 
+gets imported in dwmon.py if you are curious.
+
+```
+import os
+
+import db_client
+
+db_user = os.environ["DWMON_DB_USER"]
+db_name = os.environ["DWMON_DB_NAME"]
+db_host = os.environ["DWMON_DB_HOST"]
+
+def _get_rows_from_query(query, data):
+    data_obj = db_client.Postgres(db=db_name, host=db_host, port=5432, user=db_user)
+    results = data_obj.query(query, data)
+    return results
+```
+
+This makes things very generic.  If you know how to interpret a query so as to make a GET/POST 
+request to the appropriate system instead of querying an sql database, by all means - go for it!
+The function must return a list of (key, timestamp) tuples, though.
+
 # More details about counting logic
 The output of query results in the configs gets sent to a dataset like this:
 
@@ -159,11 +182,3 @@ CHECKHOURS0-23 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECOND
 CHECKHOURS0-23 CHECKMINUTES30-30 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
 ```
 
-# Future work
-I'm not sure how to make the (remote) database part of this swapable.
-Examples here assume sqlite or postgres, but others may have completely different 
-databases.  By allowing the user to write executables that return text instead of 
-specific queries, one could do very complex/flexible things, but this also makes 
-it hard for a novice user to add to the system.
-
-Maybe sqlAlchemy could be used.

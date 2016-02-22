@@ -67,7 +67,7 @@ No spaces are allowed except between options.  Numbers/ranges must not be separa
 from their options with whitespace.
 
 # Query execution
-You must define a _get_rows_from_query function in your_orgs_row_getter.py.  See how this 
+You must define a get_rows_from_query function in your_orgs_row_getter.py.  See how this 
 gets imported in dwmon.py if you are curious. This function is passed a) the query from the config, 
 b) the __SOURCE__ section from the config.
 
@@ -81,7 +81,7 @@ db_user = os.environ["DWMON_DB_USER"]
 db_name = os.environ["DWMON_DB_NAME"]
 db_host = os.environ["DWMON_DB_HOST"]
 
-def _get_rows_from_query(query_details, data):
+def get_rows_from_query(query_details, data):
     data_obj = db_client.Postgres(db=db_name, host=db_host, port=5432, user=db_user)
     results = data_obj.query(query_details["query"], data)
     return results

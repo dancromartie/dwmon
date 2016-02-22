@@ -294,7 +294,7 @@ def do_multiple_history_check(checker_name, query_details, requirements):
     all_new_checks = []
     if eligible_minutes:
         # Refresh results, just once if we have reason to check
-        rows = your_orgs_row_getter._get_rows_from_query(query_details, ())
+        rows = your_orgs_row_getter.get_rows_from_query(query_details, ())
         store_results(checker_name, rows)
 
         filtered_minutes = [] 

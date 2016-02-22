@@ -1,3 +1,8 @@
+**.dwmon
+**.swp
+**.un~
+your_orgs_row_getter.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -60,3 +65,4 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+

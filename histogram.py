@@ -23,7 +23,8 @@ if __name__ == "__main__":
         strftime('%w', datetime(timestamp, 'unixepoch')) as day_of_week,
         strftime('%H', datetime(timestamp, 'unixepoch')) as hour,
         min(datetime(timestamp, 'unixepoch', 'localtime')) as mytime,
-        count(1)
+        count(1),
+        min(timestamp)
         FROM
         results
         WHERE day_of_week IN ('1', '2', '3', '4', '5')
@@ -33,7 +34,7 @@ if __name__ == "__main__":
         ORDER BY day_of_week, hour ASC
     """
 
-    print "day_of_week|hour|min_local_time|count"
+    print "day_of_week|hour|min_local_time|count|min_epoch"
     results = db_conn.cursor().execute(query, (checker, epoch_lower))
     for result in results:
-        print "%s|%s|%s|%s" % (result[0], result[1], result[2], result[3])
+        print "%s|%s|%s|%s|%s" % (result[0], result[1], result[2], result[3], result[4])

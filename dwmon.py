@@ -7,7 +7,8 @@ import re
 import sqlite3
 import time
 
-import your_orgs_row_getter
+import your_org.your_orgs_alerter as your_orgs_alerter
+import your_org.your_orgs_row_getter as your_orgs_row_getter
 
 DB_NAME = "dwmon_fake.db"
 CONFIGS_FOLDER = "./checker_configs"
@@ -88,10 +89,13 @@ def store_results(checker_name, results):
         VALUES (?, ?, ?)
     """
     to_insert = []
+    # Don't insert dupes within this batch either
+    already_seen = {}
     for row in results:
         id_ = row[0]
         timestamp = row[1]
-        if id_ not in existing_ids:
+        if id_ not in existing_ids and id_ not in already_seen:
+            already_seen[id_] = 1
             to_insert.append((checker_name, id_, timestamp))
     _write_query(insert_query, to_insert, many=True)
 
@@ -302,15 +306,13 @@ def do_multiple_history_check(checker_name, query_details, requirements):
             logging.info("eligible minute is %s minutes ago" \
                 % ((int(time.time()) - elig_min) / 60))
             logging.info("Checking history for %s" % checker_name)
-            check_status = do_single_history_check(
+            check_details = do_single_history_check(
                 checker_name,
                 elig_min,
                 requirements
             )
-            assert check_status in ["GOOD", "BAD"]
-            logging.info("checker: %s, status: %s, check_time: %s" \
-                % (checker_name, check_status, elig_min))
-            all_new_checks.append(check_status)
+            assert check_details["check_status"] in ["GOOD", "BAD"]
+            all_new_checks.append(check_details)
             log_check(checker_name, elig_min)
     return all_new_checks
 
@@ -332,11 +334,23 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
     rows = _get_rows_from_query(events_query, events_query_data)
     event_count = rows[0][0]
     logging.info("Found %s events in the time window" % event_count)
-    if event_count < requirements["min_num"]:
-        return "BAD"
-    if event_count > requirements["max_num"]:
-        return "BAD"
-    return "GOOD"
+    check_status = ""
+
+    if event_count < requirements["min_num"] or event_count > requirements["max_num"]:
+        check_status = "BAD"
+    else:
+        check_status = "GOOD"
+    assert check_status in ["GOOD", "BAD"]
+
+    check_details = {
+        "checker_name": checker_name,
+        "event_count": event_count,
+        "min_required": requirements["min_num"],
+        "max_allowed": requirements["max_num"],
+        "check_status": check_status,
+        "minute_epoch": minute_epoch
+    }
+    return check_details
 
 
 def get_checker_names():
@@ -361,7 +375,10 @@ def check_all():
     for checker_name in checker_names:
         query_details, requirements = parse_config_file(checker_name)
         for req in requirements:
-            statuses = do_multiple_history_check(checker_name, query_details, req)
+            all_check_details = do_multiple_history_check(checker_name, query_details, req)
+            for details in all_check_details:
+                your_orgs_alerter.handle_check(details)
+                
 
 
 if __name__ == "__main__":

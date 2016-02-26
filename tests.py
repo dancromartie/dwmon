@@ -18,6 +18,14 @@ class CronTests(unittest.TestCase):
         self.assertTrue(result["max_num"] == 20)
         self.assertTrue(result["lookback_seconds"] == 3600)
 
+    def test_parse_requirements_star(self):
+        cron_string = "CHECKHOURS0-9 CHECKMINUTES*/10 " \
+            "WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS3600"
+        result = dwmon.parse_requirements(cron_string)
+        self.assertTrue(result["check_minutes_lower"] is None)
+        self.assertTrue(result["check_minutes_upper"] is None)
+        self.assertTrue(result["check_minutes_star"] == 10)
+
     def test_switched_hours_range(self):
         # 9 to 5 is a reverse range, bad! (shoul be 9 - 17 probably
         cron_string = "CHECKHOURS9-5 CHECKMINUTES0-0 " \

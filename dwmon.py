@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 import math
@@ -7,7 +8,7 @@ import re
 import sqlite3
 import time
 
-import your_org.your_orgs_alerter as your_orgs_alerter
+import your_org.your_orgs_check_handler as your_orgs_check_handler
 import your_org.your_orgs_row_getter as your_orgs_row_getter
 
 DB_NAME = "dwmon_fake.db"
@@ -18,6 +19,7 @@ def parse_config_file(checker_name):
     query_sentinel = "__QUERY__"
     source_sentinel = "__SOURCE__"
     requirements_sentinel = "__REQUIREMENTS__"
+    extra_sentinel = "__EXTRA__"
     unique_key_sentinel = "dwmon_unique_key"
     timestamp_sentinel = "dwmon_timestamp"
 
@@ -34,9 +36,11 @@ def parse_config_file(checker_name):
         % timestamp_sentinel
     assert source_sentinel in config_as_string, "Expected %s" \
         % source_sentinel
+    assert extra_sentinel in config_as_string, "Expected %s" \
+        % extra_sentinel
 
     regex_string =  query_sentinel + "(.*)" + requirements_sentinel \
-        + "(.*)" + source_sentinel + "(.*)"
+        + "(.*)" + source_sentinel + "(.*)" + extra_sentinel + "(.*)"
     query_search = re.search(
         regex_string,
         config_as_string,
@@ -47,10 +51,12 @@ def parse_config_file(checker_name):
     query = query_search.group(1).strip()
     requirements_sets = query_search.group(2).strip().split("\n")
     query_source = query_search.group(3).strip()
+    extra_json = query_search.group(4).strip()
+    extra_parsed = json.loads(extra_json)
 
     requirements = [parse_requirements(x) for x in requirements_sets]
     query_details = {"query": query, "source": query_source}
-    return (query_details, requirements)
+    return (query_details, requirements, extra_parsed)
 
 
 def _get_rows_from_query(query, data):
@@ -313,7 +319,6 @@ def do_multiple_history_check(checker_name, query_details, requirements):
             )
             assert check_details["check_status"] in ["GOOD", "BAD"]
             all_new_checks.append(check_details)
-            log_check(checker_name, elig_min)
     return all_new_checks
 
 
@@ -375,11 +380,16 @@ def check_all():
     """
     checker_names = get_checker_names()
     for checker_name in checker_names:
-        query_details, requirements = parse_config_file(checker_name)
+        try:
+            query_details, requirements, extra_config = parse_config_file(checker_name)
+        except:
+            logging.error("Couldn't parse config for checker %s" % checker_name)
+            raise
         for req in requirements:
             all_check_details = do_multiple_history_check(checker_name, query_details, req)
             for details in all_check_details:
-                your_orgs_alerter.handle_check(details)
+                your_orgs_check_handler.handle_check(details, extra_config)
+                log_check(checker_name, details["minute_epoch"])
                 
 
 

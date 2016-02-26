@@ -8,11 +8,10 @@ import re
 import sqlite3
 import time
 
-import your_org.your_orgs_check_handler as your_orgs_check_handler
-import your_org.your_orgs_row_getter as your_orgs_row_getter
 
 DB_NAME = "dwmon_fake.db"
 CONFIGS_FOLDER = "./checker_configs"
+
 
 def parse_config_file(checker_name):
     """Parses our custom config format"""
@@ -49,12 +48,14 @@ def parse_config_file(checker_name):
     assert query_search, "Config parse failed for some reason"
 
     query = query_search.group(1).strip()
-    requirements_sets = query_search.group(2).strip().split("\n")
+    # Whitespace is allowed between requirements lines to help maintain related groups visually
+    requirements_sets = re.split(r"\s*\n", query_search.group(2).strip())
     query_source = query_search.group(3).strip()
     extra_json = query_search.group(4).strip()
     extra_parsed = json.loads(extra_json)
 
-    requirements = [parse_requirements(x) for x in requirements_sets]
+    requirements = [parse_requirements(x) for x in requirements_sets if x.strip() != ""]
+    assert requirements, "No requirements found for checker %s" % checker_name
     query_details = {"query": query, "source": query_source}
     return (query_details, requirements, extra_parsed)
 
@@ -145,7 +146,7 @@ def parse_requirements(requirements_string):
     find the check time related info in it.
     """
 
-    bad_character_search = re.search(r"[^A-Z\s0-9-]", requirements_string)
+    bad_character_search = re.search(r"[^A-Z\s0-9-*/]", requirements_string)
     assert not bad_character_search, "Bad characters detected in requirements"
 
     assert "CHECKHOURS" in requirements_string, "missing CHECKHOURS"
@@ -166,22 +167,39 @@ def parse_requirements(requirements_string):
     check_hours_lower = int(check_hours_search.group(1))
     check_hours_upper = int(check_hours_search.group(2))
 
+    # Allow for */20 type notation
+    has_star_stuff = False
     check_minutes_search = re.search(
         r"CHECKMINUTES(\d+)-(\d+)",
         requirements_string
     )
+    if not check_minutes_search:
+        check_minutes_search = re.search(
+            r"CHECKMINUTES\*/(\d+)",
+            requirements_string
+        )
+        has_star_stuff = True
+
     assert check_minutes_search, "Couldn't parse minutes info"
-    check_minutes_lower = int(check_minutes_search.group(1))
-    check_minutes_upper = int(check_minutes_search.group(2))
+
+    if not has_star_stuff:
+        check_minutes_lower = int(check_minutes_search.group(1))
+        check_minutes_upper = int(check_minutes_search.group(2))
+        check_minutes_star = None
+        assert check_minutes_lower <= check_minutes_upper, \
+            "bad minutes relationship"
+        assert check_minutes_lower >= 0 and check_minutes_upper <= 59, \
+            "out of range minutes specified"
+    else:
+        check_minutes_lower = None
+        check_minutes_upper = None
+        check_minutes_star = int(check_minutes_search.group(1))
+        assert check_minutes_star < 59 and check_minutes_star > 0
 
     assert check_hours_lower <= check_hours_upper, \
         "bad hours relationship"
-    assert check_minutes_lower <= check_minutes_upper, \
-        "bad minutes relationship"
     assert check_hours_lower >= 0 and check_hours_upper <= 23, \
         "out of range hours specified"
-    assert check_minutes_lower >= 0 and check_minutes_upper <= 59, \
-        "out of range minutes specified"
 
     include_weekends = "WEEKENDS" in requirements_string
     include_weekdays = "WEEKDAYS" in requirements_string
@@ -212,6 +230,7 @@ def parse_requirements(requirements_string):
         "check_hours_upper": check_hours_upper,
         "check_minutes_lower": check_minutes_lower,
         "check_minutes_upper": check_minutes_upper,
+        "check_minutes_star": check_minutes_star,
         "include_weekdays": include_weekdays,
         "include_weekends": include_weekends,
         "min_num": min_num,
@@ -229,10 +248,14 @@ def matches_time_pattern(requirements, epoch):
     """
     datetime_obj = datetime.datetime.fromtimestamp(epoch)
 
-    if datetime_obj.minute < requirements["check_minutes_lower"]:
-        return False
-    if datetime_obj.minute > requirements["check_minutes_upper"]:
-        return False
+    if not requirements["check_minutes_star"]:
+        if datetime_obj.minute < requirements["check_minutes_lower"]:
+            return False
+        if datetime_obj.minute > requirements["check_minutes_upper"]:
+            return False
+    else:
+        if datetime_obj.minute % requirements["check_minutes_star"] != 0:
+            return False
     if datetime_obj.hour < requirements["check_hours_lower"]:
         return False
     if datetime_obj.hour > requirements["check_hours_upper"]:
@@ -394,6 +417,13 @@ def check_all():
 
 
 if __name__ == "__main__":
+    # I put these here because if you're running the tests, you might not necessarily care 
+    # about testing your custom functions here - they're outside the scope of testing.
+    # Mine custom handlers import some packages that others might not have.
+    # I could put dummy ones into version control, but then I'd have to delete my current one.
+    # TODO make this more elegant.
+    import your_org.your_orgs_check_handler as your_orgs_check_handler
+    import your_org.your_orgs_row_getter as your_orgs_row_getter
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s %(name)-8s %(levelname)-8s %(message)s'

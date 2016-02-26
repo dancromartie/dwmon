@@ -67,7 +67,7 @@ No spaces are allowed except between options.  Numbers/ranges must not be separa
 from their options with whitespace.
 
 # Query execution
-You must define a get_rows_from_query function in your_orgs_row_getter.py.  See how this 
+You must define a get_rows_from_query function in your_org.your_orgs_row_getter.py.  See how this 
 gets imported in dwmon.py if you are curious. This function is passed a) the query from the config, 
 b) the __SOURCE__ section from the config.
 
@@ -126,26 +126,10 @@ where somebody changes their LOOKBACKSECONDS from 60 to 3600, and causing a
 bunch of old alerts to spring up for previous times we have already checked under 
 a previous set of requirements for that checker.
 
-# Alerting
-No support for email "alerts" is currently available.  It's suggested that you 
-scan the output of this system's print statements to figure out when you should 
-alert.  This is fairly straightforward given the output:
-
-```
-...
-eligible minute is 0 minutes ago
-Checking history for new_executions
-Found 0 events
-checker: new_executions, status: BAD, check_time: 1456023060
-eligible minute is 1 minutes ago
-Checking history for new_executions
-Found 0 events
-checker: new_executions, status: BAD, check_time: 1456023000
-...
-```
-
-You could just have a script that scans this log for "BAD", sends an email, and
-then remembers the line so that it does not alert on it twice.
+# Following up on a check
+You can define a handle_check function in the your_org.your_orgs_check_handler module.  This takes a 
+dictionary of the fields returned by the "do_single_history_check" function in dwmon.py.  You 
+can do whatever you want with that information - log it, send an email alert if bad, etc.
 
 # Tricky situations / Anticipated FAQ
 ## My records don't have a timestamp
@@ -197,5 +181,3 @@ to the sqlite database.
 
 # Creating the db
 run the create_tables function in dwmon.py
-
-

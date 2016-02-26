@@ -348,7 +348,9 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
         "min_required": requirements["min_num"],
         "max_allowed": requirements["max_num"],
         "check_status": check_status,
-        "minute_epoch": minute_epoch
+        "minute_epoch": minute_epoch,
+        "minute_local_time": str(datetime.datetime.fromtimestamp(minute_epoch)),
+        "lookback_seconds": lookback_seconds,
     }
     return check_details
 

@@ -42,7 +42,7 @@ class CronTests(unittest.TestCase):
             dwmon.parse_requirements(cron_string)
 
     def test_missing_hours(self):
-        cron_string = "CHECKMINUTES9-5 " \
+        cron_string = "CHECKMINUTES9-15 " \
             "WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS1000"
         with self.assertRaisesRegexp(Exception, "missing CHECKHOURS"):
             dwmon.parse_requirements(cron_string)

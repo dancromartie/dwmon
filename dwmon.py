@@ -1,9 +1,14 @@
+"""
+This is the main script that runs in a loop and performs all checks.
+It calls out to some custom defined "row getters" and "check handlers".
+It makes determinations about whether or not events are meeting their config'ed behavior.
+"""
+
 import datetime
 import json
 import logging
 import os
 import math
-import random
 import re
 import sqlite3
 import time
@@ -12,52 +17,66 @@ import time
 DB_NAME = "dwmon_fake.db"
 CONFIGS_FOLDER = "./checker_configs"
 
+# Strings used in the config format
+QUERY_SENTINEL = "__QUERY__"
+SOURCE_SENTINEL = "__SOURCE__"
+REQUIREMENTS_SENTINEL = "__REQUIREMENTS__"
+EXTRA_SENTINEL = "__EXTRA__"
+UNIQUE_KEY_SENTINEL = "dwmon_unique_key"
+TIMESTAMP_SENTINEL = "dwmon_timestamp"
 
-def parse_config_file(checker_name):
-    """Parses our custom config format"""
-    query_sentinel = "__QUERY__"
-    source_sentinel = "__SOURCE__"
-    requirements_sentinel = "__REQUIREMENTS__"
-    extra_sentinel = "__EXTRA__"
-    unique_key_sentinel = "dwmon_unique_key"
-    timestamp_sentinel = "dwmon_timestamp"
 
-    with open(CONFIGS_FOLDER + "/" + checker_name + ".dwmon") as f_handle:
-        config_as_string = f_handle.read()
-
-    assert query_sentinel in config_as_string, "Expected %s" \
-        % query_sentinel
-    assert requirements_sentinel in config_as_string, "Expected %s" \
-        % requirements_sentinel
-    assert unique_key_sentinel in config_as_string, "Expected %s" \
-        % unique_key_sentinel
-    assert timestamp_sentinel in config_as_string, "Expected %s" \
-        % timestamp_sentinel
-    assert source_sentinel in config_as_string, "Expected %s" \
-        % source_sentinel
-    assert extra_sentinel in config_as_string, "Expected %s" \
-        % extra_sentinel
-
-    regex_string =  query_sentinel + "(.*)" + requirements_sentinel \
-        + "(.*)" + source_sentinel + "(.*)" + extra_sentinel + "(.*)"
-    query_search = re.search(
+def pull_sections_from_config(config_as_string):
+    """
+    Pulls out certain strings from the config and gives them names.
+    """
+    regex_string = QUERY_SENTINEL + "(.*)" + REQUIREMENTS_SENTINEL \
+        + "(.*)" + SOURCE_SENTINEL + "(.*)" + EXTRA_SENTINEL + "(.*)"
+    config_search = re.search(
         regex_string,
         config_as_string,
         re.DOTALL
     )
-    assert query_search, "Config parse failed for some reason"
+    assert config_search, "Config parse failed for some reason"
+    return {
+        "query_string": config_search.group(1).strip(),
+        "requirements_string": config_search.group(2).strip(),
+        "source_string": config_search.group(3).strip(),
+        "extra_string": config_search.group(4).strip()
+    }
 
-    query = query_search.group(1).strip()
+
+def parse_config_file(checker_name):
+    """Parses our custom config format"""
+
+    with open(CONFIGS_FOLDER + "/" + checker_name + ".dwmon") as f_handle:
+        config_as_string = f_handle.read()
+
+    assert QUERY_SENTINEL in config_as_string, "Expected %s" \
+        % QUERY_SENTINEL
+    assert REQUIREMENTS_SENTINEL in config_as_string, "Expected %s" \
+        % REQUIREMENTS_SENTINEL
+    assert UNIQUE_KEY_SENTINEL in config_as_string, "Expected %s" \
+        % UNIQUE_KEY_SENTINEL
+    assert TIMESTAMP_SENTINEL in config_as_string, "Expected %s" \
+        % TIMESTAMP_SENTINEL
+    assert SOURCE_SENTINEL in config_as_string, "Expected %s" \
+        % SOURCE_SENTINEL
+    assert EXTRA_SENTINEL in config_as_string, "Expected %s" \
+        % EXTRA_SENTINEL
+
+    config_sections = pull_sections_from_config(config_as_string)
     # Whitespace is allowed between requirements lines to help maintain related groups visually
-    requirements_sets = re.split(r"\s*\n", query_search.group(2).strip())
-    query_source = query_search.group(3).strip()
-    extra_json = query_search.group(4).strip()
-    extra_parsed = json.loads(extra_json)
-
+    requirements_sets = re.split(r"\s*\n", config_sections["requirements_string"])
     requirements = [parse_requirements(x) for x in requirements_sets if x.strip() != ""]
     assert requirements, "No requirements found for checker %s" % checker_name
-    query_details = {"query": query, "source": query_source}
-    return (query_details, requirements, extra_parsed)
+
+    query_details = {
+        "query": config_sections["query_string"],
+        "source": config_sections["source_string"],
+    }
+    extra_json = json.loads(config_sections["extra_string"])
+    return (query_details, requirements, extra_json)
 
 
 def _get_rows_from_query(query, data):
@@ -108,6 +127,9 @@ def store_results(checker_name, results):
 
 
 def log_check(checker_name, minute_epoch):
+    """
+    Make a record of us checking this event as of a certain time, so we don't try to do it again.
+    """
     assert isinstance(minute_epoch, int)
     insert_query = """
         INSERT INTO checks (checker, timestamp) VALUES (?, ?)
@@ -128,7 +150,7 @@ def create_tables():
     _write_query(results_creation_query, ())
     _write_query(results_index_query, ())
 
-    # I'm avoiding the primary key on replace thing cause postgres doesn't have 
+    # I'm avoiding the primary key on replace thing cause postgres doesn't have
     # that feature :(
     checks_creation_query = """
         CREATE TABLE checks (checker text, timestamp integer)
@@ -140,25 +162,11 @@ def create_tables():
     _write_query(checks_index_query, ())
 
 
-def parse_requirements(requirements_string):
+def parse_hours_info(requirements_string):
     """
-    Given a requirements string (which might contain a bunch of extra stuff),
-    find the check time related info in it.
+    Get check time info for hours from a requirements string.
     """
-
-    bad_character_search = re.search(r"[^A-Z\s0-9-*/]", requirements_string)
-    assert not bad_character_search, "Bad characters detected in requirements"
-
     assert "CHECKHOURS" in requirements_string, "missing CHECKHOURS"
-    assert "CHECKMINUTES" in requirements_string, "missing CHECKMINUTES"
-    assert "MAXNUM" in requirements_string, "missing MAXNUM"
-    assert "MINNUM" in requirements_string, "missing MINNUM"
-    assert "LOOKBACKSECONDS" in requirements_string, "missing LOOKBACKSECONDS"
-
-    has_day_of_week_info = " WEEKENDS" in requirements_string or \
-        " WEEKDAYS" in requirements_string
-    assert has_day_of_week_info, "No weekend/weekday info supplied"
-
     check_hours_search = re.search(
         r"CHECKHOURS(\d+)-(\d+)",
         requirements_string
@@ -167,6 +175,23 @@ def parse_requirements(requirements_string):
     check_hours_lower = int(check_hours_search.group(1))
     check_hours_upper = int(check_hours_search.group(2))
 
+    assert check_hours_lower <= check_hours_upper, \
+        "bad hours relationship"
+    assert check_hours_lower >= 0 and check_hours_upper <= 23, \
+        "out of range hours specified"
+
+    return {
+        "check_hours_upper": check_hours_upper,
+        "check_hours_lower": check_hours_lower
+    }
+
+
+def parse_minutes_info(requirements_string):
+    """
+    Get check time info for minutes from a requirements string.
+    """
+
+    assert "CHECKMINUTES" in requirements_string, "missing CHECKMINUTES"
     # Allow for */20 type notation
     has_star_stuff = False
     check_minutes_search = re.search(
@@ -195,15 +220,34 @@ def parse_requirements(requirements_string):
         check_minutes_upper = None
         check_minutes_star = int(check_minutes_search.group(1))
         assert check_minutes_star < 59 and check_minutes_star > 0
+    return {
+        "check_minutes_lower": check_minutes_lower,
+        "check_minutes_upper": check_minutes_upper,
+        "check_minutes_star": check_minutes_star
+    }
 
-    assert check_hours_lower <= check_hours_upper, \
-        "bad hours relationship"
-    assert check_hours_lower >= 0 and check_hours_upper <= 23, \
-        "out of range hours specified"
 
+def parse_day_of_week_info(requirements_string):
+    """
+    Get check time info for day of week info from a requirements string.
+    """
+    has_day_of_week_info = " WEEKENDS" in requirements_string or \
+        " WEEKDAYS" in requirements_string
+    assert has_day_of_week_info, "No weekend/weekday info supplied"
     include_weekends = "WEEKENDS" in requirements_string
     include_weekdays = "WEEKDAYS" in requirements_string
+    return {
+        "include_weekends": include_weekends,
+        "include_weekdays": include_weekdays
+    }
 
+
+def parse_min_max_info(requirements_string):
+    """
+    Get min max info from a requirements string.
+    """
+    assert "MAXNUM" in requirements_string, "missing MAXNUM"
+    assert "MINNUM" in requirements_string, "missing MINNUM"
     min_num_search = re.search(
         r"MINNUM(\d+)",
         requirements_string
@@ -215,27 +259,56 @@ def parse_requirements(requirements_string):
         requirements_string
     )
     max_num = int(max_num_search.group(1))
+    assert min_num >= 0 and min_num <= max_num, "bad minnum/maxnum"
+    return {
+        "min_num": min_num,
+        "max_num": max_num
+    }
 
+
+def parse_lookback_info(requirements_string):
+    """
+    Parse lookback info from a requirements string.  This tells us how far to look back
+    into the past.
+    """
+    assert "LOOKBACKSECONDS" in requirements_string, "missing LOOKBACKSECONDS"
     lookback_seconds_search = re.search(
         r"LOOKBACKSECONDS(\d+)",
         requirements_string
     )
     lookback_seconds = int(lookback_seconds_search.group(1))
-
     assert lookback_seconds > 0
-    assert min_num >= 0 and min_num <= max_num, "bad minnum/maxnum"
+    return {
+        "lookback_seconds": lookback_seconds
+    }
+
+
+def parse_requirements(requirements_string):
+    """
+    Given a requirements string (which might contain a bunch of extra stuff),
+    find the check time related info in it.
+    """
+
+    bad_character_search = re.search(r"[^A-Z\s0-9-*/]", requirements_string)
+    assert not bad_character_search, "Bad characters detected in requirements"
+
+    minutes_info = parse_minutes_info(requirements_string)
+    hours_info = parse_hours_info(requirements_string)
+    day_of_week_info = parse_day_of_week_info(requirements_string)
+    min_max_info = parse_min_max_info(requirements_string)
+    lookback_info = parse_lookback_info(requirements_string)
 
     parsed = {
-        "check_hours_lower": check_hours_lower,
-        "check_hours_upper": check_hours_upper,
-        "check_minutes_lower": check_minutes_lower,
-        "check_minutes_upper": check_minutes_upper,
-        "check_minutes_star": check_minutes_star,
-        "include_weekdays": include_weekdays,
-        "include_weekends": include_weekends,
-        "min_num": min_num,
-        "max_num": max_num,
-        "lookback_seconds": lookback_seconds,
+        "check_hours_lower": hours_info["check_hours_lower"],
+        "check_hours_upper": hours_info["check_hours_upper"],
+        "check_minutes_lower": minutes_info["check_minutes_lower"],
+        "check_minutes_upper": minutes_info["check_minutes_upper"],
+        "check_minutes_star": minutes_info["check_minutes_star"],
+        "include_weekdays": day_of_week_info["include_weekdays"],
+        "include_weekends": day_of_week_info["include_weekends"],
+        "min_num": min_max_info["min_num"],
+        "max_num": min_max_info["max_num"],
+        "lookback_seconds": lookback_info["lookback_seconds"],
     }
     return parsed
 
@@ -243,7 +316,7 @@ def parse_requirements(requirements_string):
 def matches_time_pattern(requirements, epoch):
     """
     Checks that an epoch matches the time pattern in the requirements.
-    For example, if we have epoch 12345678900, we can check if this is 
+    For example, if we have epoch 12345678900, we can check if this is
     indeed in the 23rd minute of the first hour of the day on a weekend.
     """
     datetime_obj = datetime.datetime.fromtimestamp(epoch)
@@ -279,6 +352,25 @@ def matches_time_pattern(requirements, epoch):
     return True
 
 
+def get_time_of_most_recent_check(checker_name):
+    """
+    Figures out the last time a check was performed for this checker,
+    useful in avoiding alerts on old things we don't care about anymore.
+    """
+    previous_checks_query = """
+        SELECT max(timestamp) FROM checks
+        WHERE checker = ?
+        ORDER BY timestamp DESC
+        LIMIT 10000
+    """
+    previous_check_results = _get_rows_from_query(
+        previous_checks_query,
+        (checker_name,)
+    )
+    time_of_most_recent_check = previous_check_results[0][0]
+    return time_of_most_recent_check
+
+
 def do_multiple_history_check(checker_name, query_details, requirements):
     """
     Check that events recorded match the requirements in the config
@@ -295,31 +387,18 @@ def do_multiple_history_check(checker_name, query_details, requirements):
     # Get the current epoch and round it down to the nearest minute
     current_epoch = int(time.time())
     minute_epoch_max = int(math.floor(current_epoch / 60) * 60)
-    # If the epoch is 1 trillion, say, let's pretend that it's 
+    # If the epoch is 1 trillion, say, let's pretend that it's
     # 1trillion - 60, 1trillion - 120, 1trillion - 180, etc.
-    # We might have some lag in our actual cron running these checks, 
-    # so we always want to say "would we have alerted at this time with the 
+    # We might have some lag in our actual cron running these checks,
+    # so we always want to say "would we have alerted at this time with the
     # data we have now if we ran the cron then?
 
     minute_epochs_to_check = [minute_epoch_max]
     num_minutes_to_check = int(
         math.ceil(requirements['lookback_seconds']/ 60) * 10)
-    minute_marker = minute_epoch_max
-    for i in range(num_minutes_to_check):
-        minute_marker -= 60
-        minute_epochs_to_check.append(minute_marker)
+    minute_epochs_to_check += [minute_epoch_max - (60 * i) for i in range(num_minutes_to_check)]
 
-    previous_checks_query = """
-        SELECT max(timestamp) FROM checks
-        WHERE checker = ?
-        ORDER BY timestamp DESC
-        LIMIT 10000
-    """
-    previous_check_results = _get_rows_from_query(
-        previous_checks_query,
-        (checker_name,)
-    )
-    time_of_most_recent_check = previous_check_results[0][0]
+    time_of_most_recent_check = get_time_of_most_recent_check(checker_name)
     eligible_minutes = [
         x for x in minute_epochs_to_check \
             if matches_time_pattern(requirements, x) and x > time_of_most_recent_check
@@ -330,11 +409,9 @@ def do_multiple_history_check(checker_name, query_details, requirements):
         rows = your_orgs_row_getter.get_rows_from_query(query_details, ())
         store_results(checker_name, rows)
 
-        filtered_minutes = [] 
         for elig_min in eligible_minutes:
-            logging.info("eligible minute is %s minutes ago" \
-                % ((int(time.time()) - elig_min) / 60))
-            logging.info("Checking history for %s" % checker_name)
+            logging.info("eligible minute is %s minutes ago", ((int(time.time()) - elig_min) / 60))
+            logging.info("Checking history for %s", checker_name)
             check_details = do_single_history_check(
                 checker_name,
                 elig_min,
@@ -361,7 +438,7 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
     events_query_data = (checker_name, seconds_lower, seconds_upper)
     rows = _get_rows_from_query(events_query, events_query_data)
     event_count = rows[0][0]
-    logging.info("Found %s events in the time window" % event_count)
+    logging.info("Found %s events in the time window", event_count)
     check_status = ""
 
     if event_count < requirements["min_num"] or event_count > requirements["max_num"]:
@@ -385,14 +462,14 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
 
 def get_checker_names():
     """
-    Go through the config directory and figure out the checker names 
+    Go through the config directory and figure out the checker names
     from the files there.
     """
     names = []
     files = os.listdir(CONFIGS_FOLDER)
-    for f in files:
-        if f.endswith(".dwmon"):
-            names.append(f.replace(".dwmon", ""))
+    for fname in files:
+        if fname.endswith(".dwmon"):
+            names.append(fname.replace(".dwmon", ""))
     assert names, "No checker names found.  Is the configs dir empty?"
     return names
 
@@ -406,22 +483,21 @@ def check_all():
         try:
             query_details, requirements, extra_config = parse_config_file(checker_name)
         except:
-            logging.error("Couldn't parse config for checker %s" % checker_name)
+            logging.error("Couldn't parse config for checker %s", checker_name)
             raise
         for req in requirements:
             all_check_details = do_multiple_history_check(checker_name, query_details, req)
             for details in all_check_details:
                 your_orgs_check_handler.handle_check(details, extra_config)
                 log_check(checker_name, details["minute_epoch"])
-                
 
 
 if __name__ == "__main__":
-    # I put these here because if you're running the tests, you might not necessarily care 
+    # I put these here because if you're running the tests, you might not necessarily care
     # about testing your custom functions here - they're outside the scope of testing.
     # Mine custom handlers import some packages that others might not have.
     # I could put dummy ones into version control, but then I'd have to delete my current one.
-    # TODO make this more elegant.
+    # We should make this more elegant - maybe make this language agnostic?
     import your_org.your_orgs_check_handler as your_orgs_check_handler
     import your_org.your_orgs_row_getter as your_orgs_row_getter
     logging.basicConfig(

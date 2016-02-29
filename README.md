@@ -29,6 +29,9 @@ CHECKHOURS0-23 CHECKMINUTES0-59 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECON
 
 __SOURCE__
 AWS
+
+__EXTRA__
+{"some_extra_config": ["your", "arbitrary", "json"]}
 ```
 
 If we have a model that runs all day, we might want to check that on

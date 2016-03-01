@@ -13,8 +13,9 @@ import re
 import sqlite3
 import time
 
+import config
 
-DB_NAME = "dwmon_fake.db"
+DB_NAME = config.SQLITE_DB_NAME
 CONFIGS_FOLDER = "./checker_configs"
 
 # Strings used in the config format

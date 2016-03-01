@@ -7,20 +7,28 @@ import random
 import sqlite3
 import time
 
-CONN = sqlite3.connect("dwmon_fake.db")
+import config
+
+CONN = sqlite3.connect(config.SQLITE_DB_NAME)
 
 
 def fake_id():
+    """
+    Makes a bs random id out of numbers and letters
+    """
     letters = [x for x in "abcdefghijklmnop"]
     numbers = [x for x in "1234567890"]
     id_ = ""
-    for i in range(8):
+    for _ in range(8):
         id_ += random.choice(letters)
         id_ += random.choice(numbers)
     return id_
 
 
 def fake_an_application():
+    """
+    Creates a fake record in the applications table
+    """
     application_id = fake_id()
     created_date = "2016-02-20"
     stage = random.choice(["won", "lost"])
@@ -34,6 +42,9 @@ def fake_an_application():
 
 
 def fake_an_execution():
+    """
+    Creates a fake record in the executions table
+    """
     exec_id = fake_id()
     exec_ts = int(time.time())
     model_name = random.choice(["credit", "industry"])
@@ -48,6 +59,9 @@ def fake_an_execution():
 
 
 def create_tables():
+    """
+    Creates some fake tables.
+    """
     applications_creation_query = """
         CREATE TABLE applications (
             application_id text,

@@ -118,7 +118,7 @@ def store_results(checker_name, results):
     # Don't insert dupes within this batch either
     already_seen = {}
     for row in results:
-        id_ = row[0]
+        id_ = str(row[0])
         timestamp = row[1]
         if id_ not in existing_ids and id_ not in already_seen:
             already_seen[id_] = 1
@@ -393,10 +393,9 @@ def do_multiple_history_check(checker_name, query_details, requirements):
     # so we always want to say "would we have alerted at this time with the
     # data we have now if we ran the cron then?
 
-    minute_epochs_to_check = [minute_epoch_max]
     num_minutes_to_check = int(
-        math.ceil(requirements['lookback_seconds']/ 60) * 10)
-    minute_epochs_to_check += [minute_epoch_max - (60 * i) for i in range(num_minutes_to_check)]
+        math.ceil(requirements['lookback_seconds'] / 60) * 10)
+    minute_epochs_to_check = [minute_epoch_max - (60 * i) for i in range(num_minutes_to_check)]
 
     time_of_most_recent_check = get_time_of_most_recent_check(checker_name)
     eligible_minutes = [

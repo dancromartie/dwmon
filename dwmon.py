@@ -69,7 +69,11 @@ def parse_config_file(checker_name):
     config_sections = pull_sections_from_config(config_as_string)
     # Whitespace is allowed between requirements lines to help maintain related groups visually
     requirements_sets = re.split(r"\s*\n", config_sections["requirements_string"])
-    requirements = [parse_requirements(x) for x in requirements_sets if x.strip() != ""]
+    requirements = [
+        parse_requirements(x) for x in requirements_sets  \
+            if x.strip() != "" and not x.startswith("#")
+    ]
+
     assert requirements, "No requirements found for checker %s" % checker_name
 
     query_details = {

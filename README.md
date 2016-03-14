@@ -64,6 +64,9 @@ CHECKHOURS0-23 CHECKMINUTES0-59 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECON
 All CHECKHOURS and CHECKMINUTES must be specified with a range.  To specify 
 a single minute when to check things, supply 5-5, for the 5th minute, for example.
 
+CHECKMINUTES*/20 means "check every 20 minutes" (or when minute mod 20 == 0). This is not 
+available for CHECKHOURS at the moment.
+
 At least one of WEEKENDS or WEEKDAYS must be supplied.
 
 No spaces are allowed except between options.  Numbers/ranges must not be separated 
@@ -164,14 +167,14 @@ ORDER BY dwmon_timestamp DESC
 LIMIT 10000
 ```
 
-## I want to check several times within an hour (e.g. 0th minute and 30th minute)
+## I want to check at several sparse hours (e.g. 9am and 1pm)
 Try something like the following.  It's not the most beautiful but it keeps 
 the implementation simple.
 
 ```
 __REQUIREMENTS__
-CHECKHOURS0-23 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
-CHECKHOURS0-23 CHECKMINUTES30-30 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
+CHECKHOURS9-9 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
+CHECKHOURS13-13 CHECKMINUTES0-0 WEEKENDS WEEKDAYS MINNUM5 MAXNUM20 LOOKBACKSECONDS180
 ```
 
 ## The unique thing is long, like a piece of text

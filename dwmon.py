@@ -464,6 +464,20 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
     return check_details
 
 
+def delete_old_rows(checker_name, old_if_this_criteria):
+    # This key being set to null means we don't want to do a deletion
+    # One example of this is opting to do a deletion after each check with .01 probability, 
+    # just to keep from doing excessive table scanning.
+    if not old_if_this_criteria["delete_older_than_epoch"]:
+        return False
+    logging.info("Purging old rows for checker %s", checker_name)
+    delete_older_than_epoch = old_if_this_criteria["delete_older_than_epoch"]
+    deletion_query = """
+        DELETE FROM results WHERE timestamp < ? AND checker = ?
+    """
+    _write_query(deletion_query, (delete_older_than_epoch, checker_name))
+
+
 def get_checker_names():
     """
     Go through the config directory and figure out the checker names
@@ -494,6 +508,8 @@ def check_all():
             for details in all_check_details:
                 your_orgs_check_handler.handle_check(details, extra_config)
                 log_check(checker_name, details["minute_epoch"])
+                old_if_this_criteria = your_orgs_row_purger.identify_old(checker_name, extra_config)
+                delete_old_rows(checker_name, old_if_this_criteria)
 
 
 if __name__ == "__main__":
@@ -504,6 +520,7 @@ if __name__ == "__main__":
     # We should make this more elegant - maybe make this language agnostic?
     import your_org.your_orgs_check_handler as your_orgs_check_handler
     import your_org.your_orgs_row_getter as your_orgs_row_getter
+    import your_org.your_orgs_row_purger as your_orgs_row_purger
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s %(name)-8s %(levelname)-8s %(message)s'

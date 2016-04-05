@@ -416,11 +416,14 @@ def do_multiple_history_check(checker_name, query_details, requirements):
         for elig_min in eligible_minutes:
             logging.info("eligible minute is %s minutes ago", ((int(time.time()) - elig_min) / 60))
             logging.info("Checking history for %s", checker_name)
+            start_time = time.time()
             check_details = do_single_history_check(
                 checker_name,
                 elig_min,
                 requirements
             )
+            end_time = time.time()
+            logging.info("Check took %s seconds", round(end_time - start_time, 5))
             assert check_details["check_status"] in ["GOOD", "BAD"]
             all_new_checks.append(check_details)
     return all_new_checks

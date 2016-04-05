@@ -465,8 +465,11 @@ def do_single_history_check(checker_name, minute_epoch, requirements):
 
 
 def delete_old_rows(checker_name, old_if_this_criteria):
-    # This key being set to null means we don't want to do a deletion
-    # One example of this is opting to do a deletion after each check with .01 probability, 
+    """
+    Deletes old rows for a checker if a certain epoch limit is set.
+    """
+    # This key being set to None means we don't want to do a deletion
+    # One example of this is opting to do a deletion after each check with .01 probability,
     # just to keep from doing excessive table scanning.
     if not old_if_this_criteria["delete_older_than_epoch"]:
         return False

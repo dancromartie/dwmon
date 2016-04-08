@@ -9,6 +9,9 @@ The foremost priority is to make it easy to add additonal checks for typical
 I'm not sure if this is reinventing any wheels.  Even if something already exists, this is fun.  This 
 is also a different way of thinking about my previous "Affirmative" project (see repo by same name).
 
+
+# Synopsis
+
 Here is an example config for a "checker" called new_executions, in file new_executions.dwmon:
 
 ```
@@ -29,14 +32,20 @@ __SOURCE__
 AWS
 
 __EXTRA__
-{"some_extra_config": ["your", "arbitrary", "json"]}
+{"some_extra_config": ["your", "arbitrary", "json"], "alert": "devops@nerds.com"}
 ```
 
 If we have a model that runs all day, we might want to check that on
 every minute of the day including weekends, when we look back in the prior 
 180 seconds, we see between 5 and 20 model executions.
 
-# Requirements
+# Dependencies
+
+This only requires Python, and only uses packages that ship with Python (2.7 for me), not sure about 
+3.x.  You can use your own packages to write custom handlers for checks if you want to get fancy.  
+This does use sqlite however.
+
+# Configuration Files
 
 ## Query result format
 A "checker" is defined by creating a some_checker_name.dwmon file, in a format 
@@ -196,6 +205,6 @@ to the sqlite database.
 run the create_tables function in dwmon.py
 
 # Profiling
-## Slow queries are a concern if they hold up everyone's checkers.  For that reason, some simple 
+Slow queries are a concern if they hold up everyone's checkers.  For that reason, some simple 
 execution times are logged to help you track down the person who is causing trouble.  I haven't 
 thought about how to scale this up much from what I need it for.

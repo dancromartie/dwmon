@@ -51,6 +51,10 @@ config -> fetch / query execution -> results storage -> checks/counts -> handler
 
 Read on to learn more about each step.
 
+# The key point
+
+"When a new dwmon_unique_key is found, a record is added for that key with dwmon_timestamp"
+
 # Configuration Files
 
 ## Query result format

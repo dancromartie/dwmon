@@ -45,6 +45,12 @@ This only requires Python, and only uses packages that ship with Python (2.7 for
 3.x.  You can use your own packages to write custom handlers for checks if you want to get fancy.  
 This does use sqlite however.
 
+# General flow
+
+config -> fetch / query execution -> results storage -> checks/counts -> handlers -> purges
+
+Read on to learn more about each step.
+
 # Configuration Files
 
 ## Query result format

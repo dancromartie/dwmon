@@ -1,3 +1,5 @@
+Named dwmon because of original intentions - "data warehouse monitor".
+
 # Motivation
 
 This is designed to let you monitor counts of things in a datastore.
